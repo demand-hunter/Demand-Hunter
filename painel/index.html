@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>DEMAND HUNTER PRO</title>
+
+<style>
+body{background:#0f1117;color:white;font-family:Arial;padding:20px;}
+h1{color:#00ff88;}
+.sub{color:#94a3b8;margin-top:-8px;}
+.topo{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.botao{background:#00ff88;color:black;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;font-weight:bold;}
+.botao2{background:#4da6ff;color:white;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;margin-top:10px;margin-right:6px;}
+.botao3{background:#25d366;color:black;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;margin-top:10px;margin-right:6px;font-weight:bold;}
+.botao4{background:#ffaa00;color:black;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;margin-top:10px;margin-right:6px;font-weight:bold;}
+.botao5{background:#a78bfa;color:white;padding:8px 12px;border:none;border-radius:8px;cursor:pointer;margin-top:10px;margin-right:6px;font-weight:bold;}
+.card{background:#1b1f2a;padding:15px;margin-bottom:15px;border-radius:10px;border-left:5px solid #00ff88;}
+.alto{border-left:5px solid #ff3b3b;}
+.medio{border-left:5px solid #ffaa00;}
+.tendencia{background:#202938;padding:10px;border-radius:8px;margin-bottom:10px;}
+textarea{width:100%;margin-top:10px;background:#10141d;color:white;border-radius:8px;padding:10px;white-space:pre-wrap;}
+.badge{display:inline-block;background:#00ff88;color:black;padding:4px 8px;border-radius:6px;font-size:12px;font-weight:bold;margin-right:5px;}
+select{padding:10px;border-radius:8px;background:#202938;color:white;border:1px solid #334155;}
+.resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px;}
+.box{background:#1b1f2a;padding:12px;border-radius:10px;}
+.valor{font-size:22px;font-weight:bold;color:#00ff88;}
+a{color:#4da6ff;}
+.tabs{margin:15px 0;}
+.tab{background:#202938;color:white;padding:8px 14px;border:none;border-radius:8px;margin-right:6px;cursor:pointer;}
+.tab.active{background:#00ff88;color:black;font-weight:bold;}
+.lead,.alerta{background:#18202c;padding:12px;border-radius:10px;margin-bottom:10px;}
+.alerta{border-left:5px solid #ff3b3b;}
+.topbar{background:#111827;padding:15px;border-radius:12px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap}.logo{font-size:26px;font-weight:bold;color:#00ff88}.miniinfo{background:#1f2937;padding:10px;border-radius:10px;margin:5px;display:inline-block}
+.aviso{background:#2b2435;border-left:5px solid #a78bfa;padding:12px;border-radius:10px;margin:10px 0;color:#ddd;}
+</style>
+</head>
+
+<body><div class="topbar"><div class="logo">DEMAND HUNTER ELITE</div><div><span class="miniinfo">IA Comercial Ativa</span><span class="miniinfo">Detector de Dores</span><span class="miniinfo">Leads Inteligentes</span></div></div>
+
+<h1>DEMAND HUNTER PRO</h1>
+<p class="sub">Radar operacional de oportunidades monetizáveis.</p>
+
+<div class="topo">
+<button class="botao" onclick="coletar()">Coletar Oportunidades</button>
+<button class="botao" onclick="carregarLeads()">Ver Leads Salvos</button>
+<button class="botao" onclick="monitorarRespostas()">Monitorar Respostas</button>
+<button class="botao" onclick="carregarAlertas()">Ver Alertas</button>
+<select id="filtro" onchange="renderizarCards()">
+<option value="todos">Todos</option>
+<option value="saas">SaaS</option>
+<option value="freela">Freela</option>
+<option value="automação">Automação</option>
+<option value="dinheiro">Dinheiro</option>
+<option value="planilha">Planilhas</option>
+<option value="imagem">Imagem</option>
+</select>
+</div>
+
+<div class="resumo">
+<div class="box">Oportunidades<br><span id="total" class="valor">0</span></div>
+<div class="box">Alto potencial<br><span id="altas" class="valor">0</span></div>
+<div class="box">Alta chance venda<br><span id="chances" class="valor">0</span></div>
+<div class="box">Top categoria<br><span id="topcat" class="valor">-</span></div>
+</div>
+
+<div class="tabs">
+<button class="tab active" onclick="mostrarAba('oportunidades', this)">Oportunidades</button>
+<button class="tab" onclick="mostrarAba('leads', this)">Leads</button>
+<button class="tab" onclick="mostrarAba('alertas', this)">Alertas/Respostas</button>
+</div>
+
+<div id="aba_oportunidades">
+<h2>🔥 TOP TENDÊNCIAS</h2>
+<div id="tendencias"></div>
+<hr>
+<div id="resultado"></div>
+</div>
+
+<div id="aba_leads" style="display:none;">
+<h2>📌 Leads Salvos</h2>
+<div class="aviso">Use esta aba para controlar quem já foi comentado, quem respondeu, quem recebeu link do WhatsApp e quem virou venda.</div>
+<div id="lista_leads"></div>
+</div>
+
+<div id="aba_alertas" style="display:none;">
+<h2>🚨 Alertas de Respostas</h2>
+<div class="aviso">O monitor salva sinais públicos de resposta nos links marcados como comentados. Para WhatsApp automático, configure opcionalmente <b>callmebot_apikey.txt</b>. Sem isso, o botão gera um link manual/assistido.</div>
+<div id="lista_alertas"></div>
+</div>
+
+<script>
+let oportunidadesGlobais = []
+let tendenciasGlobais = []
+let whatsappNumero = ""
+
+function escapeHtml(valor){
+    return String(valor || "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;")
+}
+function textoSeguro(valor){return String(valor || "").replaceAll('"', "'")}
+function textoHumano(valor){return String(valor || "").replaceAll("\\n", "\n")}
+function copiar(texto, aviso){navigator.clipboard.writeText(textoHumano(texto)); alert(aviso || "Copiado.")}
+function dataAttr(texto){return encodeURIComponent(textoHumano(texto || ""))}
+function jsonAttr(obj){return encodeURIComponent(JSON.stringify(obj || {}))}
+
+function gerarScoreValor(item){
+    let pontos = 0
+    let cats = String(item.categorias || "").toLowerCase()
+    if(item.potencial === "ALTO"){pontos += 50}
+    if(String(item.chance_venda || "").includes("ALTA")){pontos += 35}
+    if(cats.includes("saas")){pontos += 25}
+    if(cats.includes("dinheiro")){pontos += 20}
+    if(cats.includes("automação")){pontos += 15}
+    if(cats.includes("freela")){pontos += 10}
+    if(cats.includes("planilha")){pontos += 15}
+    if(cats.includes("imagem")){pontos += 15}
+    return pontos
+}
+
+function detectarDor(item){
+    let titulo = textoSeguro(item.titulo)
+    let cats = String(item.categorias || "").toLowerCase()
+    let texto = titulo.toLowerCase()
+    if(texto.includes("time tracking") || texto.includes("invoicing") || texto.includes("invoice") || cats.includes("dinheiro")){
+        return {
+            dor:"Controle de tempo, clientes, projetos e faturamento sem pagar sistema caro.",
+            produto:"Planilha ou mini ferramenta personalizada de controle de horas e faturamento.",
+            isca:"Modelo gratuito de controle de horas e faturamento.",
+            preco:"R$ 50 a R$ 120",
+            termoWhatsapp:"Quero o modelo base de controle de horas e faturamento"
+        }
+    }
+    if(cats.includes("imagem")){
+        return {
+            dor:"Pessoa precisa melhorar, recuperar ou editar imagem sem contratar serviço caro.",
+            produto:"Edição/recuperação de imagem com prévia e entrega única.",
+            isca:"Prévia gratuita de recuperação/edição de imagem.",
+            preco:"R$ 20 a R$ 80",
+            termoWhatsapp:"Quero uma prévia de recuperação ou edição de imagem"
+        }
+    }
+    if(cats.includes("automação")){
+        return {
+            dor:"Tarefa repetitiva que pode ser simplificada com automação.",
+            produto:"Automação simples ou script personalizado para reduzir trabalho manual.",
+            isca:"Checklist gratuito para identificar automações simples.",
+            preco:"R$ 50 a R$ 150",
+            termoWhatsapp:"Quero ver uma automação simples para minha tarefa"
+        }
+    }
+    if(cats.includes("saas")){
+        return {
+            dor:"Software caro, complexo ou grande demais para uma necessidade simples.",
+            produto:"Mini ferramenta simples, barata e feita sob medida.",
+            isca:"Modelo simples de ferramenta sem mensalidade.",
+            preco:"R$ 80 a R$ 200",
+            termoWhatsapp:"Quero ver um modelo simples de ferramenta sem mensalidade"
+        }
+    }
+    if(cats.includes("freela")){
+        return {
+            dor:"Freelancer/autônomo precisa resolver algo rápido sem contratar estrutura grande.",
+            produto:"Serviço remoto pontual com entrega objetiva.",
+            isca:"Diagnóstico gratuito rápido da demanda.",
+            preco:"R$ 30 a R$ 120",
+            termoWhatsapp:"Quero um diagnóstico rápido da minha demanda"
+        }
+    }
+    return {
+        dor:"Necessidade prática detectada no post/comentário.",
+        produto:"Solução simples e personalizada com entrega única.",
+        isca:"Modelo ou diagnóstico gratuito relacionado à demanda.",
+        preco:"R$ 50 a R$ 120",
+        termoWhatsapp:"Quero ver um modelo simples para minha necessidade"
+    }
+}
+
+function gerarProposta(item){
+    let titulo = textoSeguro(item.titulo)
+    let info = detectarDor(item)
+    return "Olá.\n\n" +
+    "Vi sua necessidade relacionada a:\n\n" +
+    titulo +
+    "\n\nPosso ajudar com " + info.produto.toLowerCase() + ".\n\n" +
+    "A ideia é entregar algo simples, prático e sem complicar seu fluxo."
+}
+
+function gerarAbordagemPublica(item){
+    let info = detectarDor(item)
+    return "Existem ferramentas prontas que podem resolver, mas às vezes elas ficam caras, complexas ou grandes demais para uma necessidade simples.\n\n" +
+    "Uma alternativa é usar algo próprio e direto ao ponto: " + info.produto.toLowerCase() + "\n\n" +
+    "Tenho um modelo base simples desse tipo. Se quiser, posso te mandar para testar."
+}
+
+function gerarVendaPrivada(item){
+    let info = detectarDor(item)
+    return "Esse é o modelo base.\n\n" +
+    "Se quiser, eu posso personalizar para o seu caso real: campos, categorias, clientes, valores, resumo e visual.\n\n" +
+    "Faço como entrega única, sem mensalidade e sem suporte contínuo obrigatório.\n\n" +
+    "Valor inicial sugerido: " + info.preco + "."
+}
+
+function gerarRespostaSePedirModelo(item){
+    let info = detectarDor(item)
+    return "Claro. Posso te mandar o modelo base.\n\n" +
+    "Ele é pensado para resolver esta dor: " + info.dor + "\n\n" +
+    "Se depois você quiser, também posso personalizar para o seu fluxo real como entrega única, sem mensalidade."
+}
+
+function gerarLinkWhatsAppDor(item){
+    let info = detectarDor(item)
+    if(!whatsappNumero){return ""}
+    return "https://wa.me/" + whatsappNumero + "?text=" + encodeURIComponent(info.termoWhatsapp)
+}
+
+async function carregarConfig(){
+    try{
+        const resposta = await fetch("/config")
+        const dados = await resposta.json()
+        whatsappNumero = dados.whatsapp || ""
+    }catch(e){console.log(e)}
+}
+
+async function coletar(){
+    const resposta = await fetch("/coletar")
+    const dados = await resposta.json()
+    oportunidadesGlobais = dados.oportunidades || []
+    tendenciasGlobais = dados.tendencias || []
+    whatsappNumero = dados.whatsapp || whatsappNumero || ""
+    oportunidadesGlobais.sort((a,b) => gerarScoreValor(b) - gerarScoreValor(a))
+    renderizarTendencias()
+    renderizarResumo()
+    renderizarCards()
+}
+
+function renderizarResumo(){
+    document.getElementById("total").innerText = oportunidadesGlobais.length
+    document.getElementById("altas").innerText = oportunidadesGlobais.filter(o => o.potencial === "ALTO").length
+    document.getElementById("chances").innerText = oportunidadesGlobais.filter(o => String(o.chance_venda || "").includes("ALTA")).length
+    document.getElementById("topcat").innerText = tendenciasGlobais.length > 0 ? tendenciasGlobais[0].categoria : "-"
+}
+
+function renderizarTendencias(){
+    const area = document.getElementById("tendencias")
+    area.innerHTML = ""
+    tendenciasGlobais.forEach(function(t){
+        area.innerHTML += '<div class="tendencia"><b>' + escapeHtml(t.categoria) + '</b> -> ' + escapeHtml(t.ocorrencias) + ' ocorrências</div>'
+    })
+}
+
+function montarLead(item, status){
+    let titulo = textoSeguro(item.titulo)
+    let proposta = gerarProposta(item)
+    let abordagem = gerarAbordagemPublica(item)
+    let venda = gerarVendaPrivada(item)
+    let linkZap = gerarLinkWhatsAppDor(item)
+    return {
+        titulo: titulo,
+        categorias: item.categorias,
+        potencial: item.potencial,
+        chance_venda: item.chance_venda || "NÃO AVALIADA",
+        acao: item.acao,
+        monetizacao: item.monetizacao,
+        proximo_passo: item.proximo_passo || "Analisar manualmente.",
+        link: item.link,
+        proposta: proposta,
+        abordagem_publica: abordagem,
+        isca_gratis: detectarDor(item).isca,
+        link_whatsapp_dor: linkZap,
+        venda_privada: venda,
+        status: status || "novo"
+    }
+}
+
+function renderizarCards(){
+    const filtro = document.getElementById("filtro").value
+    const area = document.getElementById("resultado")
+    area.innerHTML = ""
+    oportunidadesGlobais.forEach(function(item){
+        if(filtro !== "todos" && !String(item.categorias || "").toLowerCase().includes(filtro)){return}
+        let classe = item.potencial === "ALTO" ? "alto" : "medio"
+        let titulo = textoSeguro(item.titulo)
+        let proposta = gerarProposta(item)
+        let abordagem = gerarAbordagemPublica(item)
+        let venda = gerarVendaPrivada(item)
+        let respostaModelo = gerarRespostaSePedirModelo(item)
+        let linkZap = gerarLinkWhatsAppDor(item)
+        let valor = gerarScoreValor(item)
+        let chance = item.chance_venda || "NÃO AVALIADA"
+        let passo = item.proximo_passo || "Analisar manualmente."
+        let info = detectarDor(item)
+        let leadJson = jsonAttr(montarLead(item,"novo"))
+        let itemJson = jsonAttr(item)
+        area.innerHTML +=
+        '<div class="card ' + classe + '">' +
+        '<div><b>🔥 POTENCIAL: ' + escapeHtml(item.potencial) + '</b></div>' +
+        '<div><b>💰 SCORE COMERCIAL: ' + valor + '</b></div>' +
+        '<div><b>🎯 CHANCE DE VENDA: ' + escapeHtml(chance) + '</b></div>' +
+        '<h2>' + escapeHtml(titulo) + '</h2>' +
+        '<p><span class="badge">' + escapeHtml(item.categorias) + '</span></p>' +
+        '<p><b>Dor traduzida:</b> ' + escapeHtml(info.dor) + '</p>' +
+        '<p><b>Produto possível:</b> ' + escapeHtml(info.produto) + '</p>' +
+        '<p><b>Isca grátis:</b> ' + escapeHtml(info.isca) + '</p>' +
+        '<p><b>Preço sugerido:</b> ' + escapeHtml(info.preco) + '</p>' +
+        '<p><b>Ação:</b> ' + escapeHtml(item.acao) + '</p>' +
+        '<p><b>Monetização:</b> ' + escapeHtml(item.monetizacao) + '</p>' +
+        '<p><b>Próximo passo:</b> ' + escapeHtml(passo) + '</p>' +
+        '<a target="_blank" href="' + escapeHtml(item.link) + '">Abrir oportunidade</a>' +
+        '<br><br>' +
+        '<button class="botao2" onclick="copiarTexto(this)" data-texto="' + dataAttr(proposta) + '">Copiar Proposta</button>' +
+        '<button class="botao4" onclick="salvarLead(this)" data-json="' + leadJson + '">Salvar Lead</button>' +
+        '<button class="botao3" onclick="abrirWhatsApp(this)" data-texto="' + dataAttr(proposta) + '">WhatsApp</button>' +
+        '<button class="botao3" onclick="copiarMensagemIA(this)" data-ia="' + dataAttr(gerarMensagemIA(item)) + '">Mensagem IA</button>' +
+        '<button class="botao4" onclick="salvarListaIA(this)" data-json="' + itemJson + '">Lista Futura</button>' +
+        '<hr>' +
+        '<p><b>FUNIL DA DOR</b></p>' +
+        '<button class="botao2" onclick="copiarTexto(this)" data-texto="' + dataAttr(abordagem) + '">Copiar abordagem pública</button>' +
+        '<button class="botao3" onclick="copiarTexto(this)" data-texto="' + dataAttr(linkZap) + '">Copiar link WhatsApp da dor</button>' +
+        '<button class="botao2" onclick="copiarTexto(this)" data-texto="' + dataAttr(respostaModelo) + '">Copiar resposta se pedir modelo</button>' +
+        '<button class="botao2" onclick="copiarTexto(this)" data-texto="' + dataAttr(venda) + '">Copiar venda privada</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'comentado\')" data-json="' + leadJson + '">Marcar Comentado</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'respondeu\')" data-json="' + leadJson + '">Marcar Respondeu</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'link_whatsapp_enviado\')" data-json="' + leadJson + '">Link WhatsApp Enviado</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'chamou_whatsapp\')" data-json="' + leadJson + '">Chamou WhatsApp</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'modelo_enviado\')" data-json="' + leadJson + '">Modelo Enviado</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'oferta_enviada\')" data-json="' + leadJson + '">Oferta Enviada</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'fechado\')" data-json="' + leadJson + '">Fechado</button>' +
+        '<button class="botao4" onclick="atualizarStatus(this,\'perdido\')" data-json="' + leadJson + '">Perdido</button>' +
+        '<textarea rows="6">' + escapeHtml(textoHumano(proposta)) + '</textarea>' +
+        '</div>'
+    })
+}
+
+function copiarTexto(botao){
+    let texto = decodeURIComponent(botao.getAttribute("data-texto"))
+    copiar(texto, "Texto copiado.")
+}
+
+async function salvarLead(botao){
+    let dados = JSON.parse(decodeURIComponent(botao.getAttribute("data-json")))
+    const resposta = await fetch("/salvar_lead", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(dados)})
+    const retorno = await resposta.json()
+    alert(retorno.ok ? "Lead salvo." : "Erro ao salvar lead.")
+}
+
+async function atualizarStatus(botao, status){
+    let dados = JSON.parse(decodeURIComponent(botao.getAttribute("data-json")))
+    dados.status = status
+    const resposta = await fetch("/atualizar_status", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(dados)})
+    const retorno = await resposta.json()
+    alert(retorno.ok ? "Status atualizado: " + status : "Erro ao atualizar status.")
+}
+
+function abrirWhatsApp(botao){
+    let texto = decodeURIComponent(botao.getAttribute("data-texto"))
+    if(!whatsappNumero){
+        alert("Número de WhatsApp não encontrado no arquivo meu_numero.txt")
+        return
+    }
+    let url = "https://wa.me/" + whatsappNumero + "?text=" + encodeURIComponent(textoHumano(texto))
+    window.open(url, "_blank")
+}
+
+async function carregarLeads(){
+    const resposta = await fetch("/leads")
+    const dados = await resposta.json()
+    const area = document.getElementById("lista_leads")
+    area.innerHTML = ""
+    if(!dados.leads || dados.leads.length === 0){
+        area.innerHTML = "<p>Nenhum lead salvo ainda.</p>"
+    }else{
+        dados.leads.reverse().forEach(function(l){
+            area.innerHTML += '<div class="lead"><b>' + escapeHtml(l.titulo) + '</b><br>' +
+            'Status: <b>' + escapeHtml(l.status || 'novo') + '</b><br>' +
+            'Potencial: ' + escapeHtml(l.potencial) + ' | Chance: ' + escapeHtml(l.chance_venda) + '<br>' +
+            'Monetização: ' + escapeHtml(l.monetizacao) + '<br>' +
+            'Última ação: ' + escapeHtml(l.ultima_acao || l.data || '') + '<br>' +
+            '<a target="_blank" href="' + escapeHtml(l.link) + '">Abrir</a>' +
+            '<br><button class="botao2" onclick="copiarTexto(this)" data-texto="' + dataAttr(l.abordagem_publica || '') + '">Copiar abordagem</button>' +
+            '<button class="botao3" onclick="copiarTexto(this)" data-texto="' + dataAttr(l.link_whatsapp_dor || '') + '">Copiar link Zap</button>' +
+            '<button class="botao2" onclick="copiarTexto(this)" data-texto="' + dataAttr(l.venda_privada || '') + '">Copiar venda</button>' +
+            '</div>'
+        })
+    }
+    mostrarAba("leads")
+}
+
+async function carregarAlertas(){
+    const resposta = await fetch("/alertas")
+    const dados = await resposta.json()
+    renderizarAlertas(dados.alertas || [])
+    mostrarAba("alertas")
+}
+
+async function monitorarRespostas(){
+    const resposta = await fetch("/monitorar_respostas")
+    const dados = await resposta.json()
+    renderizarAlertas(dados.alertas || [])
+    mostrarAba("alertas")
+    alert("Monitoramento concluído. Novos alertas: " + (dados.quantidade_novos || 0))
+}
+
+function renderizarAlertas(alertas){
+    const area = document.getElementById("lista_alertas")
+    area.innerHTML = ""
+    if(!alertas || alertas.length === 0){
+        area.innerHTML = "<p>Nenhum alerta de resposta ainda.</p>"
+        return
+    }
+    alertas.reverse().forEach(function(a){
+        area.innerHTML += '<div class="alerta">' +
+        '<b>' + escapeHtml(a.titulo || 'Resposta detectada') + '</b><br>' +
+        'Origem: ' + escapeHtml(a.origem || '') + ' | Usuário: <b>' + escapeHtml(a.usuario || '') + '</b><br>' +
+        'Status: ' + escapeHtml(a.status || 'novo') + ' | WhatsApp automático: ' + escapeHtml(a.notificado_whatsapp || 'nao') + '<br>' +
+        '<p><b>Resposta:</b><br>' + escapeHtml(a.comentario || '') + '</p>' +
+        '<p><b>Ação sugerida:</b> ' + escapeHtml(a.acao_sugerida || '') + '</p>' +
+        '<a target="_blank" href="' + escapeHtml(a.link || '') + '">Abrir origem</a><br>' +
+        '<button class="botao3" onclick="abrirLink(this)" data-link="' + dataAttr(a.link_whatsapp_alerta || '') + '">Mandar alerta para meu WhatsApp</button>' +
+        '</div>'
+    })
+}
+
+function abrirLink(botao){
+    let link = decodeURIComponent(botao.getAttribute("data-link") || "")
+    if(!link){alert("Link não disponível. Verifique meu_numero.txt."); return}
+    window.open(link, "_blank")
+}
+
+function mostrarAba(nome, botao){
+    document.getElementById("aba_oportunidades").style.display = nome === "oportunidades" ? "block" : "none"
+    document.getElementById("aba_leads").style.display = nome === "leads" ? "block" : "none"
+    document.getElementById("aba_alertas").style.display = nome === "alertas" ? "block" : "none"
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"))
+    if(botao){botao.classList.add("active")}
+}
+
+function gerarMensagemIA(item){
+ let cats=String(item.categorias||"").toLowerCase()
+ if(cats.includes("saas")) return "Vi sua reclamação sobre softwares caros. Estou criando uma alternativa mais simples e acessível justamente para isso. Posso te mostrar?"
+ if(cats.includes("automação")) return "Vi seu problema com automação e estou montando algo justamente para simplificar esse processo. Posso te mostrar uma ideia?"
+ return "Vi sua publicação e achei interessante. Estou estudando uma solução justamente para esse tipo de problema."
+}
+async function registrarLeadIA(item){
+ const resposta = await fetch("/registrar_interesse",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({usuario:item.titulo,dor:item.categorias,nivel_interesse:item.chance_venda||"medio",origem:"reddit"})})
+ const dados = await resposta.json()
+ alert(dados.ok ? "Contato salvo para futuras abordagens." : "Erro ao salvar contato.")
+}
+function copiarMensagemIA(botao){
+ let texto=decodeURIComponent(botao.getAttribute("data-ia"))
+ navigator.clipboard.writeText(textoHumano(texto))
+ alert("Mensagem IA copiada.")
+}
+function salvarListaIA(botao){
+ let item=JSON.parse(decodeURIComponent(botao.getAttribute("data-json")))
+ registrarLeadIA(item)
+}
+
+function mostrarResumoIA(){let total=document.querySelectorAll('.card').length;console.log("Radar operacional carregado.");console.log("Oportunidades detectadas:",total)}
+carregarConfig()
+setTimeout(mostrarResumoIA,1500)
+</script>
+</body>
+</html>

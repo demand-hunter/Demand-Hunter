@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: demand-hunter
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn dashboard:app
+    envVars:
+      - key: ACCESS_SECRET
+        generateValue: true
+      - key: ADMIN_KEY
+        generateValue: true
+      - key: BASE_URL
+        sync: false
