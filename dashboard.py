@@ -5,7 +5,8 @@ import os
 import sys
 import hmac
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from functools import wraps
 from tendencias import analisar_tendencias
 from leads import salvar_lead, listar_leads, atualizar_status
@@ -17,31 +18,40 @@ app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PAINEL = os.path.join(BASE_DIR, "painel")
+
 ACCESS_SECRET = os.environ.get("ACCESS_SECRET", "troque-esta-chave-no-render")
 BASE_URL = os.environ.get("BASE_URL", "").rstrip("/")
 ADMIN_KEY = os.environ.get("ADMIN_KEY", "troque-esta-chave-admin")
 
-# Três liberações por dia: 08h, 14h e 20h (horário de Brasília).
+
+# Três liberações diárias: 08h, 12h e 19h, no horário de Brasília.
 def periodo_atual():
-    agora = datetime.now()
+    agora = datetime.now(ZoneInfo("America/Sao_Paulo"))
     hora = agora.hour
+
     if hora < 8:
-        slot = "20"
+        # Antes das 08h, ainda vale a rodada das 19h do dia anterior.
+        data = (agora.date() - timedelta(days=1)).isoformat()
+        slot = "19"
+    elif hora < 12:
         data = agora.date().isoformat()
-    elif hora < 14:
         slot = "08"
+    elif hora < 19:
         data = agora.date().isoformat()
-    elif hora < 20:
-        slot = "14"
-        data = agora.date().isoformat()
+        slot = "12"
     else:
-        slot = "20"
         data = agora.date().isoformat()
+        slot = "19"
+
     return f"{data}-{slot}"
 
 
 def token_atual():
-    bruto = hmac.new(ACCESS_SECRET.encode(), periodo_atual().encode(), hashlib.sha256).hexdigest()
+    bruto = hmac.new(
+        ACCESS_SECRET.encode(),
+        periodo_atual().encode(),
+        hashlib.sha256
+    ).hexdigest()
     return bruto[:12]
 
 
@@ -53,26 +63,115 @@ def protegido(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if not acesso_valido():
-            return jsonify({"erro": "Acesso vencido. Consulte o grupo oficial para o novo link."}), 403
+            return jsonify({
+                "erro": "Acesso vencido. Consulte o Canal Oferta Certa para obter o novo link."
+            }), 403
         return func(*args, **kwargs)
+
     return wrapper
 
 
 @app.route("/")
 def home():
     return """
-    <!doctype html><html lang='pt-BR'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>
-    <title>Demand Hunter</title><style>body{font-family:Arial;background:#101827;color:#fff;display:grid;place-items:center;height:100vh;margin:0}.box{max-width:520px;padding:28px;background:#182235;border-radius:18px;text-align:center}a{color:#7dd3fc}</style>
-    <div class='box'><h1>Demand Hunter</h1><p>O acesso atual é liberado pelo grupo oficial.</p><p>Use o link mais recente publicado no grupo.</p></div></html>
+    <!doctype html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Oferta Certa</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background: #101827;
+                color: #fff;
+                display: grid;
+                place-items: center;
+                min-height: 100vh;
+                margin: 0;
+            }
+
+            .box {
+                max-width: 520px;
+                margin: 20px;
+                padding: 30px;
+                background: #182235;
+                border-radius: 18px;
+                text-align: center;
+            }
+
+            h1 {
+                margin-top: 0;
+            }
+
+            .aviso {
+                color: #7dd3fc;
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h1>Oferta Certa</h1>
+            <p>Esta rodada de ofertas não está disponível por este endereço.</p>
+            <p class="aviso">Use o link mais recente publicado no Canal Oferta Certa.</p>
+            <p>Novas rodadas: 08h, 12h e 19h.</p>
+        </div>
+    </body>
+    </html>
     """
 
 
 @app.route("/acesso/<token>")
 def acesso(token):
     if not hmac.compare_digest(token, token_atual()):
-        return "Link vencido. Consulte o grupo oficial para receber o novo acesso.", 403
+        return """
+        <!doctype html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Rodada encerrada</title>
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background: #101827;
+                    color: white;
+                    display: grid;
+                    place-items: center;
+                    min-height: 100vh;
+                    margin: 0;
+                }
+
+                .box {
+                    max-width: 520px;
+                    margin: 20px;
+                    padding: 30px;
+                    background: #182235;
+                    border-radius: 18px;
+                    text-align: center;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="box">
+                <h1>Rodada encerrada</h1>
+                <p>Este link já venceu.</p>
+                <p>Consulte o Canal Oferta Certa para acessar a rodada mais recente.</p>
+                <p>Novas rodadas: 08h, 12h e 19h.</p>
+            </div>
+        </body>
+        </html>
+        """, 403
+
     resposta = make_response(redirect("/app"))
-    resposta.set_cookie("demand_access", token_atual(), httponly=True, samesite="Lax", secure=True)
+    resposta.set_cookie(
+        "demand_access",
+        token_atual(),
+        httponly=True,
+        samesite="Lax",
+        secure=True
+    )
     return resposta
 
 
@@ -87,23 +186,51 @@ def app_usuario():
 def admin_link():
     if request.args.get("chave") != ADMIN_KEY:
         return "Acesso negado", 403
+
     base = BASE_URL or request.host_url.rstrip("/")
     link = f"{base}/acesso/{token_atual()}"
-    mensagem = f"🔥 Nova atualização do Demand Hunter disponível:\n\n{link}\n\nO link muda na próxima liberação."
-    return jsonify({"periodo": periodo_atual(), "link": link, "mensagem": mensagem})
+
+    mensagem = (
+        "🔥 NOVA RODADA DE OFERTAS DISPONÍVEL!\n\n"
+        f"👉 Acesse agora: {link}\n\n"
+        "⏳ Este link será substituído na próxima rodada.\n"
+        "📢 Horários: 08h, 12h e 19h."
+    )
+
+    return jsonify({
+        "periodo": periodo_atual(),
+        "link": link,
+        "mensagem": mensagem
+    })
 
 
 @app.route("/coletar")
 @protegido
 def coletar():
-    subprocess.run([sys.executable, "main.py"], cwd=BASE_DIR, timeout=120)
+    subprocess.run(
+        [sys.executable, "main.py"],
+        cwd=BASE_DIR,
+        timeout=120,
+        check=False
+    )
+
     arquivo_csv = os.path.join(BASE_DIR, "oportunidades.csv")
     if not os.path.exists(arquivo_csv):
-        return jsonify({"tendencias": [], "oportunidades": [], "whatsapp": WHATSAPP_NUMERO})
+        return jsonify({
+            "tendencias": [],
+            "oportunidades": [],
+            "whatsapp": WHATSAPP_NUMERO
+        })
+
     df = pd.read_csv(arquivo_csv)
     oportunidades = df.to_dict(orient="records")
     tendencias = analisar_tendencias(oportunidades)
-    return jsonify({"tendencias": tendencias, "oportunidades": oportunidades, "whatsapp": WHATSAPP_NUMERO})
+
+    return jsonify({
+        "tendencias": tendencias,
+        "oportunidades": oportunidades,
+        "whatsapp": WHATSAPP_NUMERO
+    })
 
 
 @app.route("/salvar_lead", methods=["POST"])
@@ -124,7 +251,11 @@ def leads_rota():
 @protegido
 def atualizar_status_rota():
     dados = request.get_json(force=True)
-    atualizar_status(dados.get("link", ""), dados.get("status", "novo"), dados)
+    atualizar_status(
+        dados.get("link", ""),
+        dados.get("status", "novo"),
+        dados
+    )
     return jsonify({"ok": True, "mensagem": "Status atualizado com sucesso."})
 
 
@@ -138,7 +269,12 @@ def config_rota():
 @protegido
 def registrar_interesse():
     dados = request.get_json(force=True)
-    salvar_cliente(dados.get("usuario", "anonimo"), dados.get("dor", ""), dados.get("nivel_interesse", "medio"), dados.get("origem", "reddit"))
+    salvar_cliente(
+        dados.get("usuario", "anonimo"),
+        dados.get("dor", ""),
+        dados.get("nivel_interesse", "medio"),
+        dados.get("origem", "reddit")
+    )
     return jsonify({"ok": True})
 
 
@@ -157,9 +293,16 @@ def monitorar_respostas_rota():
     leads = listar_leads()
     novos = monitorar_respostas(leads)
     alertas = listar_alertas()
+
     for alerta in alertas:
         alerta["link_whatsapp_alerta"] = gerar_link_whatsapp_alerta(alerta)
-    return jsonify({"ok": True, "novos": novos, "quantidade_novos": len(novos), "alertas": alertas})
+
+    return jsonify({
+        "ok": True,
+        "novos": novos,
+        "quantidade_novos": len(novos),
+        "alertas": alertas
+    })
 
 
 if __name__ == "__main__":
